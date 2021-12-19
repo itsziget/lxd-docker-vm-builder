@@ -24,6 +24,10 @@ function deploy() {
   lxc start "$name"
 }
 
+function lxc_provision() {
+  lxc exec --env DEBIAN_FRONTEND=noninteractive "$@"
+}
+
 if ! lxc network show "$network_host" &>/dev/null; then
   lxc network create "$network_host"
   lxc network edit "$network_host" < network.yml
@@ -36,8 +40,16 @@ fi
 
 deploy "$name" "$ip_ending"
 
-while ! lxc exec "$name" -- bash -c 'while ! docker version &>/dev/null; do echo -n "$(date): "; echo Waiting for docker to be installed; sleep 5; done' 2>/dev/null; do
+while ! lxc exec "$name" -- hostname &>/dev/null; do
   echo -n "$(date): "
   echo Waiting for lxd agent to start
   sleep 5
 done
+
+lxc_provision "$name" -- apt-get update
+lxc_provision "$name" -- apt-get install -y openssh-server ca-certificates curl gnupg lsb-release 
+lxc_provision "$name" -- bash -c "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg"
+lxc_provision "$name" -- bash -c 'echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null'
+lxc_provision "$name" -- apt-get update
+lxc_provision "$name" -- apt-get install -y "docker-ce=5:20.10.12~3-0~ubuntu-focal" "docker-ce-cli=5:20.10.12~3-0~ubuntu-focal" containerd.io
+lxc_provision "$name" -- apt-mark hold docker-ce docker-ce-cli containerd.io
