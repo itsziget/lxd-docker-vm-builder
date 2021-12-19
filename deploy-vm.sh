@@ -1,25 +1,34 @@
 #!/bin/bash
 
-set -eu
+set -eu -o pipefail
 
+network_type=bridge
 network_host=lxcdocker
+network_parent=
 network_guest=eth0
 name=docker
 profile=docker
 image=images:ubuntu/20.04/cloud
-ip_ending=10
+ip=10.79.77.10
+mac=00:16:3e:d6:a3:68
+
+if [[ -e "config.sh" ]]; then
+  source config.sh
+fi
 
 # end config
 
 function deploy() {
-  local name=$1
-  local ip_ending=$2
-
   lxc init --vm --profile "$profile" "$image" "$name"
 
-  ip_base="$(lxc query /1.0/networks/$network_host | jq -r '.config["ipv4.address"] | split ("/")[0] | split(".")[0:3] | join(".")')"
-
-  lxc config device override "$name" "$network_guest" ipv4.address="${ip_base}.${ip_ending}"
+  if [[ "$network_type" == "bridge" ]]; then
+    lxc config device override "$name" "$network_guest" ipv4.address="${ip}"
+  elif [[ "$network_type" == "macvlan" ]]; then
+    lxc config set  "$name" "volatile.eth0.hwaddr=$mac"
+  else
+    >&2 echo "Invalid network type '$network_type'"
+    exit 1
+  fi
 
   lxc start "$name"
 }
@@ -29,8 +38,14 @@ function lxc_provision() {
 }
 
 if ! lxc network show "$network_host" &>/dev/null; then
-  lxc network create "$network_host"
-  lxc network edit "$network_host" < network.yml
+  network_params=(--type "$network_type")
+  if [[ "$network_type" == "macvlan" ]]; then
+    network_params+=(parent="$network_parent")
+  fi
+  lxc network create "$network_host" "${network_params[@]}"
+  if [[ "$network_type" == "bridge" ]]; then
+    lxc network edit "$network_host" < network.yml
+  fi
 fi
 
 if ! lxc profile show "$profile" &>/dev/null; then
@@ -38,7 +53,7 @@ if ! lxc profile show "$profile" &>/dev/null; then
   lxc profile edit "$profile" < profile.yml
 fi
 
-deploy "$name" "$ip_ending"
+deploy
 
 while ! lxc exec "$name" -- hostname &>/dev/null; do
   echo -n "$(date): "
@@ -46,11 +61,13 @@ while ! lxc exec "$name" -- hostname &>/dev/null; do
   sleep 5
 done
 
-if ! lxc exec "$name" -- id docker &>/dev/null; then
-  >&2 echo "docker user does not exist"
-  exit 1
-fi
+while ! lxc exec "$name" -- id docker &>/dev/null; do
+  echo -n "$(date): "
+  echo Waiting for docker user to be created
+  sleep 5
+done
 
+exit 0
 lxc_provision "$name" -- apt-get update
 lxc_provision "$name" -- apt-get install -y openssh-server ca-certificates curl gnupg lsb-release 
 lxc_provision "$name" -- bash -c "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg"
