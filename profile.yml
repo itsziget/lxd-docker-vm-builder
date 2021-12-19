@@ -1,0 +1,44 @@
+config:
+  limits.cpu: "2"
+  limits.memory: "2GiB"
+  user.user-data: |
+    #cloud-config
+    packages:
+      - openssh-server
+      - ca-certificates
+      - curl
+      - gnupg
+      - lsb-release
+
+    runcmd:
+      - [bash, -c, "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg"]
+      - [bash, -c, 'echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null']
+      - [bash, -c, "apt-get update"]
+      - [bash, -c, "apt-get install -y docker-ce=5:20.10.12~3-0~ubuntu-focal docker-ce-cli=5:20.10.12~3-0~ubuntu-focal containerd.io"]
+      - [bash, -c, "apt-mark hold docker-ce docker-ce-cli containerd.io"]
+    
+    ssh_pwauth: yes
+
+    users:
+      - name: docker
+        ssh_authorized_keys:
+          - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIErpxh2lnNU21bx0c1abRZCBHTaw5GIezW3taj7pd8Zd ta@ta-lxlt"
+        passwd: "$6$o2Sz84nX$D/KyDmmeUojf7QumhiW9WDFvEjlht33z1B.AwnzJFaYZWRA8hJJm0EgjERYp5HcOgfLYCKzaFhRRzuCMU.jYP/"
+        lock_passwd: false
+        groups: lxd
+        shell: /bin/bash
+description: LXD profile for virtual machines
+devices:
+  eth0:
+    name: eth0
+    network: lxcdocker
+    type: nic
+  config:
+    path: /var/lib/cloud
+    source: cloud-init:config
+    type: disk
+  root:
+    path: /
+    pool: default
+    type: disk
+name: docker

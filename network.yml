@@ -1,0 +1,7 @@
+config:
+  ipv4.address: 10.79.77.1/24
+  ipv4.dhcp: "true"
+  ipv4.nat: "true"
+description: Network for docker VMs
+type: bridge
+managed: true
