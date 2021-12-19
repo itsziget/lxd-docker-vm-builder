@@ -46,6 +46,11 @@ while ! lxc exec "$name" -- hostname &>/dev/null; do
   sleep 5
 done
 
+if ! lxc exec "$name" -- id docker &>/dev/null; then
+  >&2 echo "docker user does not exist"
+  exit 1
+fi
+
 lxc_provision "$name" -- apt-get update
 lxc_provision "$name" -- apt-get install -y openssh-server ca-certificates curl gnupg lsb-release 
 lxc_provision "$name" -- bash -c "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg"
