@@ -53,7 +53,11 @@ if ! lxc profile show "$profile" &>/dev/null; then
   lxc profile edit "$profile" < profile.yml
 fi
 
-deploy
+if ! lxc info "$name" &> /dev/null; then
+  deploy
+else
+  echo "Skipping VM creation. The requested instance already exists: $name"
+fi
 
 while ! lxc exec "$name" -- hostname &>/dev/null; do
   echo -n "$(date): "
@@ -67,7 +71,6 @@ while ! lxc exec "$name" -- id docker &>/dev/null; do
   sleep 5
 done
 
-exit 0
 lxc_provision "$name" -- apt-get update
 lxc_provision "$name" -- apt-get install -y openssh-server ca-certificates curl gnupg lsb-release 
 lxc_provision "$name" -- bash -c "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg"
