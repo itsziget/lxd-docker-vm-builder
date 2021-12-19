@@ -11,7 +11,7 @@ config:
           - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIErpxh2lnNU21bx0c1abRZCBHTaw5GIezW3taj7pd8Zd ta@ta-lxlt"
         passwd: "$6$o2Sz84nX$D/KyDmmeUojf7QumhiW9WDFvEjlht33z1B.AwnzJFaYZWRA8hJJm0EgjERYp5HcOgfLYCKzaFhRRzuCMU.jYP/"
         lock_passwd: false
-        groups: lxd
+        groups: lxd, sudo
         shell: /bin/bash
 description: LXD profile for virtual machines
 devices:
